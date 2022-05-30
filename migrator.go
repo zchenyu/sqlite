@@ -30,7 +30,7 @@ func (m *Migrator) RunWithoutForeignKey(fc func() error) error {
 func (m Migrator) HasTable(value interface{}) bool {
 	var count int
 	m.Migrator.RunWithValue(value, func(stmt *gorm.Statement) error {
-		return m.DB.Raw("SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?", stmt.Table).Row().Scan(&count)
+		return m.DB.Raw("SELECT count(*) FROM sqlite_master WHERE type='table' AND name=? COLLATE NOCASE", stmt.Table).Row().Scan(&count)
 	})
 	return count > 0
 }
@@ -67,7 +67,7 @@ func (m Migrator) HasColumn(value interface{}, name string) bool {
 
 		if name != "" {
 			m.DB.Raw(
-				"SELECT count(*) FROM sqlite_master WHERE type = ? AND tbl_name = ? AND (sql LIKE ? OR sql LIKE ? OR sql LIKE ? OR sql LIKE ? OR sql LIKE ?)",
+				"SELECT count(*) FROM sqlite_master WHERE type = ? AND tbl_name = ? AND (sql LIKE ? OR sql LIKE ? OR sql LIKE ? OR sql LIKE ? OR sql LIKE ?) COLLATE NOCASE",
 				"table", stmt.Table, `%"`+name+`" %`, `%`+name+` %`, "%`"+name+"`%", "%["+name+"]%", "%\t"+name+"\t%",
 			).Row().Scan(&count)
 		}
@@ -103,7 +103,7 @@ func (m Migrator) ColumnTypes(value interface{}) ([]gorm.ColumnType, error) {
 			sqlDDL *ddl
 		)
 
-		if err := m.DB.Raw("SELECT sql FROM sqlite_master WHERE type IN ? AND tbl_name = ? AND sql IS NOT NULL order by type = ? desc", []string{"table", "index"}, stmt.Table, "table").Scan(&sqls).Error; err != nil {
+		if err := m.DB.Raw("SELECT sql FROM sqlite_master WHERE type IN ? AND tbl_name = ? AND sql IS NOT NULL order by type = ? COLLATE NOCASE desc", []string{"table", "index"}, stmt.Table, "table").Scan(&sqls).Error; err != nil {
 			return err
 		}
 
@@ -229,7 +229,7 @@ func (m Migrator) HasConstraint(value interface{}, name string) bool {
 		}
 
 		m.DB.Raw(
-			"SELECT count(*) FROM sqlite_master WHERE type = ? AND tbl_name = ? AND (sql LIKE ? OR sql LIKE ? OR sql LIKE ? OR sql LIKE ? OR sql LIKE ?)",
+			"SELECT count(*) FROM sqlite_master WHERE type = ? AND tbl_name = ? AND (sql LIKE ? OR sql LIKE ? OR sql LIKE ? OR sql LIKE ? OR sql LIKE ?) COLLATE NOCASE",
 			"table", table, `%CONSTRAINT "`+name+`" %`, `%CONSTRAINT `+name+` %`, "%CONSTRAINT `"+name+"`%", "%CONSTRAINT ["+name+"]%", "%CONSTRAINT \t"+name+"\t%",
 		).Row().Scan(&count)
 
@@ -301,7 +301,7 @@ func (m Migrator) HasIndex(value interface{}, name string) bool {
 
 		if name != "" {
 			m.DB.Raw(
-				"SELECT count(*) FROM sqlite_master WHERE type = ? AND tbl_name = ? AND name = ?", "index", stmt.Table, name,
+				"SELECT count(*) FROM sqlite_master WHERE type = ? AND tbl_name = ? AND name = ? COLLATE NOCASE", "index", stmt.Table, name,
 			).Row().Scan(&count)
 		}
 		return nil
@@ -312,7 +312,7 @@ func (m Migrator) HasIndex(value interface{}, name string) bool {
 func (m Migrator) RenameIndex(value interface{}, oldName, newName string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		var sql string
-		m.DB.Raw("SELECT sql FROM sqlite_master WHERE type = ? AND tbl_name = ? AND name = ?", "index", stmt.Table, oldName).Row().Scan(&sql)
+		m.DB.Raw("SELECT sql FROM sqlite_master WHERE type = ? AND tbl_name = ? AND name = ? COLLATE NOCASE", "index", stmt.Table, oldName).Row().Scan(&sql)
 		if sql != "" {
 			return m.DB.Exec(strings.Replace(sql, oldName, newName, 1)).Error
 		}
@@ -354,7 +354,7 @@ func buildConstraint(constraint *schema.Constraint) (sql string, results []inter
 
 func (m Migrator) getRawDDL(table string) (string, error) {
 	var createSQL string
-	m.DB.Raw("SELECT sql FROM sqlite_master WHERE type = ? AND tbl_name = ? AND name = ?", "table", table, table).Row().Scan(&createSQL)
+	m.DB.Raw("SELECT sql FROM sqlite_master WHERE type = ? AND tbl_name = ? AND name = ? COLLATE NOCASE", "table", table, table).Row().Scan(&createSQL)
 
 	if m.DB.Error != nil {
 		return "", m.DB.Error
